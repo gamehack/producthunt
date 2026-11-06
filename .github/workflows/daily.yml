@@ -3,9 +3,6 @@ name: Product Hunt Daily
 run-name: Product Hunt daily ${{ github.event.inputs.snapshot_date || 'latest completed day' }}
 
 on:
-  push:
-    branches:
-      - test/producthunt-e2e-20261106
   schedule:
     # 09:00 UTC = 17:00 Asia/Shanghai (Beijing time).
     - cron: "0 9 * * *"
@@ -26,7 +23,7 @@ concurrency:
 jobs:
   produce-notion-ready:
     # Keep the schedule dormant until the old producer is retired. Manual E2E runs remain available.
-    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/test/producthunt-e2e-20261106')
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
     timeout-minutes: 90
