@@ -80,12 +80,13 @@ GitHub 的 schedule 是 UTC 时区，可能因平台负载稍有延迟；17:00 �
 | `OMNIROUTE_API_KEY` | OmniRoute API Key |
 | `NOTION_API_KEY` | Notion Integration Secret，需有 08 页面读取和插入权限 |
 
-可选 Repository Variable：
+Repository Variables：
 
 | Variable 名称 | 默认值 |
 |---|---|
-| `OMNIROUTE_MODEL` | `minimax-m3` |
 | `PRODUCTHUNT_PRODUCTION_ENABLED` | 默认不设置或 `false`；完成新旧项目切换后再设置为 `true` |
+
+生产模型固定使用已验证的 OmniRoute 路由 ID：`minimax-cn/MiniMax-M3`。不再从 Repository Variables 读取模型名，避免错误别名被覆盖。
 
 **重要：** GitHub-hosted runner 不在你的 Docker 网络内。因此 `OMNIROUTE_BASE_URL` 必须是 runner 可通过公网 HTTPS 访问的地址；不能填写 `localhost`、Docker service 名称或仅服务器内网可达的地址。应继续使用强认证、TLS 和必要的访问控制，不要为了 Actions 而开放无认证 API。若现有 OmniRoute 只监听内网，需要先解决安全的外部 API 连通性，再启用定时任务。
 

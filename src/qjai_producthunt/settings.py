@@ -46,7 +46,7 @@ class Settings:
             ph_commercial_authorized=_flag("PRODUCT_HUNT_COMMERCIAL_AUTHORIZED"),
             omni_base_url=os.getenv("OMNIROUTE_BASE_URL", "").strip(),
             omni_api_key=os.getenv("OMNIROUTE_API_KEY", "").strip(),
-            omni_model=os.getenv("OMNIROUTE_MODEL", "minimax-m3").strip(),
+            omni_model=os.getenv("OMNIROUTE_MODEL", "minimax-cn/MiniMax-M3").strip(),
         )
         if result.source not in {"producthunt", "fixture"}:
             raise ValueError("PRODUCTHUNT_SOURCE must be producthunt")
