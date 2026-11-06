@@ -17,10 +17,18 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -q
       - run: python -m compileall -q src tests
-      - run: bash -n scripts/verify-docker.sh scripts/manage-systemd.sh
       - name: Assert producer has no channel delivery implementation
         run: |
           if grep -R -n -E 'api\.weixin\.qq\.com|WECHAT_APP_ID|CMS_INGEST_TOKEN|sync-cms|draft/add' src; then
             echo "Channel delivery code is forbidden in this repository"; exit 1
           fi
-      - run: systemd-analyze calendar '*-*-* 17:00:00 Asia/Shanghai'
+      - name: Assert production uses GitHub Actions only
+        run: |
+          test -f .github/workflows/daily.yml
+          grep -Fq 'cron: "0 9 * * *"' .github/workflows/daily.yml
+          grep -Fq 'workflow_dispatch:' .github/workflows/daily.yml
+          grep -Fq 'NOTION_AUTOSYNC_AFTER_GENERATION: "true"' .github/workflows/daily.yml
+          test ! -e Dockerfile
+          test ! -e compose.yaml
+          test ! -e deploy/systemd
+          test ! -e scripts/manage-systemd.sh
