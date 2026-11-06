@@ -49,7 +49,7 @@ jobs:
 
       - name: Reconcile verified test-only article and validate idempotency
         env:
-          NOTION_API_KEY: PLACEHOLDER
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_ENABLE_SYNC: "true"
           NOTION_PARENT_PAGE_ID: "4109e605-ccf8-81c4-accd-c19386b4a38d"
         run: |
