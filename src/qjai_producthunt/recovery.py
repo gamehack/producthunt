@@ -1,7 +1,6 @@
 """Read a verified local Product Hunt artifact for Notion-only recovery.
 
-The producer may read cached JSON/Markdown but has no CMS or WeChat
-client, URL, credential or network delivery path.
+The producer may read only bounded, locally saved JSON and Markdown artifacts.
 """
 from __future__ import annotations
 
