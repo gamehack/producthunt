@@ -77,7 +77,7 @@ async def test_ai_screening_salvages_partial_checkpoint_and_only_rescreens_missi
     run_id = "producthunt:v1:demo:2026-10-31"
     store.save(run_id, "ai_screening", old.model_dump(mode="json"))
     runtime = CountingRuntime()
-    wf = DailyWorkflow(cfg, runtime, FixtureProductSource(
+    wf = DailyPipeline(cfg, runtime, FixtureProductSource(
         Path("tests/fixtures/product_hunt_20.json")), FixtureEvidenceCollector(), store)
 
     first = await wf.run(date(2026, 10, 31))
@@ -100,7 +100,7 @@ async def test_rescreen_only_invalid_or_duplicate_ids_and_resume_without_replays
         output_dir=tmp_path / "output")
     store = StepStore(cfg.database_path)
     runtime = CountingRuntime(incomplete_first=True)
-    wf = DailyWorkflow(cfg, runtime, FixtureProductSource(
+    wf = DailyPipeline(cfg, runtime, FixtureProductSource(
         Path("tests/fixtures/product_hunt_20.json")), FixtureEvidenceCollector(), store)
     products = await wf.source.top20(date(2026, 10, 31))
     run_id = "producthunt:v1:demo:2026-10-31"
@@ -134,7 +134,7 @@ async def test_opportunity_partial_checkpoint_is_repaired_without_scoring_all_ag
     }), OpportunityScreeningResult)
     store.save(run_id, "opportunity_screening", partial.model_dump(mode="json"))
     runtime = CountingRuntime()
-    wf = DailyWorkflow(cfg, runtime, FixtureProductSource(
+    wf = DailyPipeline(cfg, runtime, FixtureProductSource(
         Path("tests/fixtures/product_hunt_20.json")), FixtureEvidenceCollector(), store)
 
     result = await wf._complete_product_decisions(
@@ -227,7 +227,7 @@ async def test_overlong_headline_rewritten_without_regenerating_article_and_cach
         "AI 代理别只会写代码：后端、调度和运营工作流都值得重新做",
         "AI Agent 创业机会不止写代码",
     ])
-    wf = DailyWorkflow(cfg, runtime, None, None, store)
+    wf = DailyPipeline(cfg, runtime, None, None, store)
     article = _article_for_headline(
         "AI 代理别只会写代码：后端、调度、运维和数据工作流的机会")
     title = await wf._resolve_headline("existing:real:run", article)
@@ -248,7 +248,7 @@ async def test_short_original_headline_no_extra_model_call(tmp_path):
     cfg = replace(Settings.load(tmp_path / "missing.env"),
                   source="fixture", database_path=tmp_path / "headlines.sqlite")
     runtime = HeadlineOnlyRuntime([])
-    wf = DailyWorkflow(cfg, runtime, None, None, StepStore(cfg.database_path))
+    wf = DailyPipeline(cfg, runtime, None, None, StepStore(cfg.database_path))
     article = _article_for_headline("产品猎人日报｜后端 AI Agent 值得关注")
     title = await wf._resolve_headline("another:run", article)
     assert title == "后端 AI Agent 值得关注"
@@ -261,7 +261,7 @@ async def test_invalid_headline_rewrites_fail_without_checkpoint_or_draft(tmp_pa
                   source="fixture", database_path=tmp_path / "headlines.sqlite")
     store = StepStore(cfg.database_path)
     runtime = HeadlineOnlyRuntime(["超长标题" * 25] * 3)
-    wf = DailyWorkflow(cfg, runtime, None, None, store)
+    wf = DailyPipeline(cfg, runtime, None, None, store)
     article = _article_for_headline("超长原始标题" * 20)
     with pytest.raises(ValueError, match="WeChat draft was not created"):
         await wf._resolve_headline("another:invalid:run", article)
