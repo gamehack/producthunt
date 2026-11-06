@@ -256,14 +256,14 @@ async def test_short_original_headline_no_extra_model_call(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_invalid_headline_rewrites_fail_without_checkpoint_or_draft(tmp_path):
+async def test_invalid_headline_rewrites_fail_without_checkpoint(tmp_path):
     cfg = replace(Settings.load(tmp_path / "missing.env"),
                   source="fixture", database_path=tmp_path / "headlines.sqlite")
     store = StepStore(cfg.database_path)
     runtime = HeadlineOnlyRuntime(["超长标题" * 25] * 3)
     wf = DailyPipeline(cfg, runtime, None, None, store)
     article = _article_for_headline("超长原始标题" * 20)
-    with pytest.raises(ValueError, match="WeChat draft was not created"):
+    with pytest.raises(ValueError, match="article generation failed"):
         await wf._resolve_headline("another:invalid:run", article)
     assert len(runtime.calls) == 3
     assert store.read("another:invalid:run", "headline:no_prefix_v5") is None
