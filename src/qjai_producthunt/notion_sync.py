@@ -90,6 +90,11 @@ def _request(method: str, path: str, token: str, payload: dict | None = None) ->
     return parsed
 
 
+def _ready_line_from_notion(raw: str) -> str:
+    """Undo only Notion's escaped underscores before strict READY matching."""
+    return raw.replace(r"\_", "_")
+
+
 def _find_existing(parent_id: str, unique_prefix: str, token: str) -> dict | None:
     """Search every child page, including pagination; user-renamed headlines survive."""
     cursor = None
@@ -180,6 +185,33 @@ def _append_ready(page_id: str, source_key: str, digest: str, token: str) -> str
     return marker
 
 
+
+def _matches_safe_notion_roundtrip(expected: str, actual: str) -> bool:
+    """Allow only observed Notion v2 markup rewrites, never textual changes.
+
+    Inline code in the archival header becomes code tags, while bare source
+    URLs become escaped Markdown hyperlinks. All other lines must be identical.
+    """
+    original = expected.split("\n")
+    rendered = actual.split("\n")
+    if len(original) != len(rendered):
+        return False
+    for before, after in zip(original, rendered):
+        if before == after:
+            continue
+        if before.startswith("> 潜界 AI 文章归档。来源唯一键："):
+            converted = re.sub(r"\x60([^\x60\n]+)\x60", r"<code>\1</code>", before)
+            if converted == after:
+                continue
+        if before.startswith("- 资料来源：https://"):
+            url = before[len("- 资料来源："):]
+            display = url.replace("_", r"\_")
+            if after == f"- 资料来源：[{display}]({url})":
+                continue
+        return False
+    return True
+
+
 def sync_article(*, source_key: str, title: str, markdown: str,
                  unique_prefix: str) -> dict[str, str]:
     """Create one dated child page, or confirm its existence without overwriting.
@@ -208,7 +240,7 @@ def sync_article(*, source_key: str, title: str, markdown: str,
         # existing child's immutable READY handshake and content digest.
         existing = _read_markdown(found["id"], token)
         lines = existing.rstrip("\n").split("\n")
-        match = _READY_RE.fullmatch(lines[-1]) if lines else None
+        match = _READY_RE.fullmatch(_ready_line_from_notion(lines[-1])) if lines else None
         if match is None or match.group("source") != source_key:
             raise RuntimeError("Existing Notion period page lacks a valid READY marker; reconcile manually")
         signed_body = _canonical("\n".join(lines[:-1]))
@@ -246,13 +278,13 @@ def sync_article(*, source_key: str, title: str, markdown: str,
     # historical duplicates are intentionally never promoted.
     _verify_created_page(page_id, parent_id, title, token)
     readback = _read_markdown(page_id, token)
-    if readback != document:
+    if not _matches_safe_notion_roundtrip(document, readback):
         raise RuntimeError("Notion Markdown readback differs from the archived article")
     verified_digest = hashlib.sha256(readback.encode("utf-8")).hexdigest()
     marker = _append_ready(page_id, source_key, verified_digest, token)
     final = _read_markdown(page_id, token)
     lines = final.rstrip().split("\n")
-    if not lines or not _READY_RE.fullmatch(lines[-1]) or lines[-1] != marker:
+    if not lines or not _READY_RE.fullmatch(_ready_line_from_notion(lines[-1])) or _ready_line_from_notion(lines[-1]) != marker:
         raise RuntimeError("Notion READY marker did not round-trip")
     verified_body = _canonical("\n".join(lines[:-1]))
     if verified_body != readback or hashlib.sha256(verified_body.encode("utf-8")).hexdigest() != verified_digest:
