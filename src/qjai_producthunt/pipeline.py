@@ -53,7 +53,7 @@ ARTICLE_PROMPT = """你是「潜界 AI」主编，栏目「产品猎人日报」
 受众希望通过 AI 赚钱，不追求深奥的模型技术原理。
 只能基于提供的调研报告和来源写原创中文分析；商业判断需使用“可能”“值得验证”等表述。
 标题主题必须突出本期独特机会，不要日期、期号或泛化资讯标题，绝对不要添加“产品猎人日报｜”等栏目固定前缀。
-微信公众号标题最多 64 个 UTF-8 字节，请直接拟定一个结构完整、自然结束的短标题，严禁把长句写到半截。
+标题最多 64 个 UTF-8 字节，请直接拟定一个结构完整、自然结束的短标题，严禁把长句写到半截。
 文章需要有观点、有风险提示，避免生硬列表堆砌。
 sections 的 source_urls 必须来自输入 reports 的 source_urls，无法证实的事实不得写出。
 产品只有 Product Hunt API 上架条目而没有厂商官网核验时，文章须使用“据 Product Hunt 上架资料介绍”之类的归因说明，不能把宣传表述写成已独立验证的事实。
@@ -102,7 +102,7 @@ class DailyPipeline:
     ):
         """Repair partial ID-bearing model outputs without replaying valid decisions.
 
-        The old unvalidated stage cache may already contain an incomplete result.
+        A previous interrupted model call may have left an incomplete checkpoint.
         Never trust it as final, but preserve uniquely matched valid product IDs.
         Each new response is requested in batches of <=5, verified, and checkpointed
         by product so interrupted retries do not repeat completed model calls.
@@ -261,8 +261,7 @@ class DailyPipeline:
             raise PermissionError("Production requires the official Product Hunt source and OpenAI runtime")
         if is_production and not autosync_enabled():
             raise PermissionError("NOTION_AUTOSYNC_AFTER_GENERATION must be true")
-        # v2 invalidates cached article steps generated under the old AI创业情报 column prompt
-        # and the temporary fixture test-draft workflow.
+        # Checkpoints are isolated by this project's schema version, runtime, and snapshot date.
         run_id = f"producthunt:v1:{mode}:{day.isoformat()}"
         async def source_step():
             return [p.model_dump(mode="json") for p in await self.source.top20(day)]
