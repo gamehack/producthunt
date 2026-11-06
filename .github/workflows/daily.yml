@@ -61,7 +61,7 @@ jobs:
       - name: Resolve Product Hunt snapshot date
         id: snapshot
         env:
-          REQUESTED_DATE: ${{ github.event.inputs.snapshot_date || '' }}
+          REQUESTED_DATE: "2026-10-30"
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
           from datetime import date, datetime, timedelta
