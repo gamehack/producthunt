@@ -58,6 +58,37 @@ class NotionSyncTests(unittest.TestCase):
         self.assertEqual([c[0] for c in calls], ["GET", "POST", "GET", "GET", "PATCH", "GET"])
         self.assertIn("QJAI_PUBLISH_READY", fake.marker)
 
+
+    def test_notion_v2_roundtrip_preserves_source_content(self):
+        url = "https://www.producthunt.com/products/demo?utm_campaign=ph&utm_source=api"
+        header = "> 潜界 AI 文章归档。来源唯一键：" + chr(96) + "producthunt:2026-10-30" + chr(96) + "。"
+        original = header + "\n正文\n- 资料来源：" + url + "\n"
+        output = ("> 潜界 AI 文章归档。来源唯一键：<code>producthunt:2026-10-30</code>。"
+                  + "\n正文\n- 资料来源：[" + url.replace("_", r"\_") + "](" + url + ")\n")
+        self.assertTrue(notion_sync._matches_safe_notion_roundtrip(original, output))
+        self.assertFalse(notion_sync._matches_safe_notion_roundtrip(original, output.replace("正文", "错误正文")))
+        self.assertFalse(notion_sync._matches_safe_notion_roundtrip(original, output.replace("utm_source=api)", "utm_source=other)")))
+        self.assertFalse(notion_sync._matches_safe_notion_roundtrip(original, output + "\n"))
+
+
+    def test_existing_escaped_ready_marker_verifies_original_digest(self):
+        body = "正文\n"
+        digest = notion_sync.hashlib.sha256(body.encode()).hexdigest()
+        marker = ("QJAI_PUBLISH_READY v=1 source_key=producthunt:2026-10-30 "
+                  "content_sha256=" + digest).replace("_", r"\_")
+        def fake(method, path, token, payload=None):
+            if method == "GET" and "/blocks/" in path and "/children" in path:
+                return {"results": [{"type": "child_page", "id": "11111111-1111-4111-8111-111111111111",
+                                     "child_page": {"title": "2026-10-30｜旧标题"}}], "has_more": False}
+            if method == "GET" and "/markdown?" in path:
+                return {"object": "page_markdown", "markdown": body + marker + "\n",
+                        "truncated": False, "unknown_block_ids": [], "warnings": []}
+            self.fail("A valid duplicate must remain read-only")
+        with patch.object(notion_sync, "_request", side_effect=fake):
+            result = notion_sync.sync_article(source_key="producthunt:2026-10-30",
+                title="2026-10-30｜新标题", unique_prefix="2026-10-30｜", markdown="正文")
+            self.assertEqual(result["result"], "duplicate_ready")
+
     def test_readback_mismatch_never_appends_ready(self):
         page_id = "e1f1a7d4-8f66-4df7-8831-ae957a4025a4"
 
