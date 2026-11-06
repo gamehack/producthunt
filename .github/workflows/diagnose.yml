@@ -1,0 +1,45 @@
+name: Debug Notion roundtrip (temporary)
+on:
+  push:
+    branches: [test/producthunt-e2e-20261106]
+    paths: [".github/workflows/diagnose.yml"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install .
+      - uses: actions/download-artifact@v4
+        with:
+          name: producthunt-recovery-2026-10-30
+          path: diagnostics
+          run-id: 42233258881
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compare original article to Notion readback (no writes)
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+        run: |
+          python - <<'PY'
+          import difflib, hashlib, os, re
+          from pathlib import Path
+          from qjai_producthunt.notion_sync import _canonical, _read_markdown
+          source = Path("diagnostics/article.md").read_text(encoding="utf-8")
+          digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+          body = re.sub(r"^#\s+[^\n]+\n+", "", source, count=1)
+          header = "> 潜界 AI 文章归档。来源唯一键：`producthunt:2026-10-30`。 原文 SHA-256：`" + digest + "`。\n\n"
+          expected = _canonical(header + body)
+          actual = _read_markdown("4109e605-ccf8-81c5-997f-f25042f361b5", os.environ["NOTION_API_KEY"])
+          print("expected_chars",len(expected),"actual_chars",len(actual))
+          e_lines=expected.splitlines()
+          a_lines=actual.splitlines()
+          changes=[(i,repr(x)[:240],repr(y)[:240]) for i,(x,y) in enumerate(zip(e_lines,a_lines),1) if x != y]
+          print("line_counts",len(e_lines),len(a_lines),"different_lines",len(changes))
+          for row in changes[:12]: print("DIFF",row)
+          print("expected_sha",hashlib.sha256(expected.encode()).hexdigest(),"actual_sha",hashlib.sha256(actual.encode()).hexdigest())
+          PY
