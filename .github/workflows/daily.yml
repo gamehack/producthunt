@@ -82,7 +82,9 @@ jobs:
             data/producthunt.sqlite-shm
             data/producthunt.sqlite-wal
             output/${{ steps.snapshot.outputs.date }}
-          key: producthunt-${{ steps.snapshot.outputs.date }}-checkpoint-v1
+          key: producthunt-${{ steps.snapshot.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            producthunt-${{ steps.snapshot.outputs.date }}-
 
       - name: Install project
         run: |
