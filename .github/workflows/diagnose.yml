@@ -1,4 +1,4 @@
-name: Debug Notion roundtrip (temporary)
+name: Verify Product Hunt Notion READY (temporary)
 on:
   push:
     branches: [test/producthunt-e2e-20261106]
@@ -21,33 +21,7 @@ jobs:
           path: diagnostics
           run-id: 42233258881
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compare original article to Notion readback (no writes)
-        env:
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-        run: |
-          python - <<'PY'
-          import difflib, hashlib, os, re
-          from pathlib import Path
-          from qjai_producthunt.notion_sync import _canonical, _read_markdown, _matches_safe_notion_roundtrip
-          source = Path("diagnostics/article.md").read_text(encoding="utf-8")
-          digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
-          body = re.sub(r"^#\s+[^\n]+\n+", "", source, count=1)
-          header = "> 潜界 AI 文章归档。来源唯一键：`producthunt:2026-10-30`。 原文 SHA-256：`" + digest + "`。\n\n"
-          expected = _canonical(header + body)
-          actual = _read_markdown("4109e605-ccf8-81c5-997f-f25042f361b5", os.environ["NOTION_API_KEY"])
-          print("expected_chars",len(expected),"actual_chars",len(actual))
-          e_lines=expected.splitlines()
-          a_lines=actual.splitlines()
-          changes=[(i,repr(x)[:240],repr(y)[:240]) for i,(x,y) in enumerate(zip(e_lines,a_lines),1) if x != y]
-          print("line_counts",len(e_lines),len(a_lines),"different_lines",len(changes))
-          for row in changes[:12]: print("DIFF",row)
-          print("expected_sha",hashlib.sha256(expected.encode()).hexdigest(),"actual_sha",hashlib.sha256(actual.encode()).hexdigest())
-          print("safe_roundtrip_match", _matches_safe_notion_roundtrip(expected, actual))
-          assert _matches_safe_notion_roundtrip(expected, actual), "Unexpected non-formatting content difference"
-          PY
-
-
-      - name: Reconcile verified test-only article and validate idempotency
+      - name: Verify READY and duplicate delivery without writes
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_ENABLE_SYNC: "true"
@@ -58,36 +32,33 @@ jobs:
           from pathlib import Path
           from qjai_producthunt.notion_sync import (
               _canonical, _read_markdown, _matches_safe_notion_roundtrip,
-              _verify_created_page, _append_ready, sync_article,
+              _verify_created_page, _ready_line_from_notion, _READY_RE, sync_article,
               EXPECTED_PARENT_PAGE_ID,
           )
-          page_id="4109e605-ccf8-81c5-997f-f25042f361b5"
-          title="2026-10-30｜AI编程赚钱切口：做缺陷上下文交付层"
-          source_key="producthunt:2026-10-30"
-          token=os.environ["NOTION_API_KEY"]
-          markdown=Path("diagnostics/article.md").read_text(encoding="utf-8")
-          digest=hashlib.sha256(markdown.encode("utf-8")).hexdigest()
-          content=re.sub(r"^#\s+[^\n]+\n+", "", markdown, count=1)
-          expected=_canonical("> 潜界 AI 文章归档。来源唯一键：" + chr(96) + source_key + chr(96)
-                              + "。 原文 SHA-256：" + chr(96) + digest + chr(96) + "。\n\n" + content)
+          page_id = "4109e605-ccf8-81c5-997f-f25042f361b5"
+          title = "2026-10-30｜AI编程赚钱切口：做缺陷上下文交付层"
+          source_key = "producthunt:2026-10-30"
+          token = os.environ["NOTION_API_KEY"]
+          markdown = Path("diagnostics/article.md").read_text(encoding="utf-8")
+          digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+          content = re.sub(r"^#\s+[^\n]+\n+", "", markdown, count=1)
+          expected = _canonical("> 潜界 AI 文章归档。来源唯一键：" + chr(96) + source_key + chr(96)
+                                + "。 原文 SHA-256：" + chr(96) + digest + chr(96) + "。\n\n" + content)
           _verify_created_page(page_id,EXPECTED_PARENT_PAGE_ID,title,token)
-          actual=_read_markdown(page_id, token)
-          if not _matches_safe_notion_roundtrip(expected, actual):
-              raise SystemExit("Test page has unexpected content changes; refusing READY")
-          sha=hashlib.sha256(actual.encode("utf-8")).hexdigest()
-          if "QJAI_PUBLISH_READY" in actual:
-              raise SystemExit("Test page already contains READY; refusing double append")
-          marker=_append_ready(page_id,source_key,sha,token)
-          final=_read_markdown(page_id,token)
-          lines=final.rstrip().split("\n")
-          if not lines or lines[-1]!=marker:
-              raise SystemExit("READY marker was not returned unchanged")
-          body=_canonical("\n".join(lines[:-1]))
-          if body!=actual or hashlib.sha256(body.encode("utf-8")).hexdigest()!=sha:
-              raise SystemExit("Content or SHA-256 changed after READY")
-          print("NOTION_READY_OK: recovered verified test page")
+          final = _read_markdown(page_id,token)
+          lines = final.rstrip().split("\n")
+          marker = _ready_line_from_notion(lines[-1])
+          match = _READY_RE.fullmatch(marker)
+          if match is None or match.group("source")!=source_key:
+              raise SystemExit("Missing Notion READY marker")
+          body = _canonical("\n".join(lines[:-1]))
+          if hashlib.sha256(body.encode("utf-8")).hexdigest() != match.group("sha"):
+              raise SystemExit("Notion READY SHA-256 mismatch")
+          if not _matches_safe_notion_roundtrip(expected,body):
+              raise SystemExit("Archived content mismatch")
+          print("NOTION_READY_OK: source and SHA-256 verified")
           result=sync_article(source_key=source_key,title=title,unique_prefix="2026-10-30｜",markdown=markdown)
           if result["result"]!="duplicate_ready":
-              raise SystemExit("Idempotent duplicate-ready validation failed")
+              raise SystemExit("Expected duplicate_ready without writes")
           print("NOTION_IDEMPOTENCY_OK: duplicate_ready")
           PY
