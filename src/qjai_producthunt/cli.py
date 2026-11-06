@@ -24,15 +24,7 @@ def _default_day() -> date:
     return datetime.now(ZoneInfo("America/Los_Angeles")).date() - timedelta(days=1)
 
 
-def _require_production_config(settings: Settings) -> None:
-    if settings.source != "producthunt":
-        raise PermissionError("Production runs accept only the official Product Hunt source")
-    if not settings.ph_token:
-        raise ValueError("PRODUCT_HUNT_TOKEN is required")
-    if not settings.ph_commercial_authorized:
-        raise PermissionError("PRODUCT_HUNT_COMMERCIAL_AUTHORIZED must be true")
-    if not all((settings.omni_base_url, settings.omni_api_key, settings.omni_model)):
-        raise ValueError("OMNIROUTE_BASE_URL, OMNIROUTE_API_KEY and OMNIROUTE_MODEL are required")
+def _require_notion_config() -> None:
     if os.getenv("NOTION_ENABLE_SYNC", "").strip().lower() != "true":
         raise PermissionError("NOTION_ENABLE_SYNC must be true")
     if os.getenv("NOTION_AUTOSYNC_AFTER_GENERATION", "").strip().lower() != "true":
@@ -43,10 +35,23 @@ def _require_production_config(settings: Settings) -> None:
         raise PermissionError("NOTION_PARENT_PAGE_ID must be the allowlisted Notion 08 page")
 
 
+def _require_production_config(settings: Settings) -> None:
+    if settings.source != "producthunt":
+        raise PermissionError("Production runs accept only the official Product Hunt source")
+    if not settings.ph_token:
+        raise ValueError("PRODUCT_HUNT_TOKEN is required")
+    if not settings.ph_commercial_authorized:
+        raise PermissionError("PRODUCT_HUNT_COMMERCIAL_AUTHORIZED must be true")
+    if not all((settings.omni_base_url, settings.omni_api_key, settings.omni_model)):
+        raise ValueError("OMNIROUTE_BASE_URL, OMNIROUTE_API_KEY and OMNIROUTE_MODEL are required")
+    _require_notion_config()
+
 async def _execute(args: argparse.Namespace) -> dict[str, object]:
     settings = Settings.load(args.env)
     if args.command == "sync-notion":
-        _require_production_config(settings)
+        if settings.source != "producthunt" or not settings.ph_commercial_authorized:
+            raise PermissionError("Notion recovery requires a validated Product Hunt article")
+        _require_notion_config()
         day = date.fromisoformat(args.date)
         if day.isoformat() != args.date:
             raise ValueError("Date must be canonical YYYY-MM-DD")
