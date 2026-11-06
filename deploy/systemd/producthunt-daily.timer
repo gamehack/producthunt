@@ -1,0 +1,12 @@
+[Unit]
+Description=Create Product Hunt Notion READY article at 17:00 Beijing
+
+[Timer]
+OnCalendar=*-*-* 17:00:00 Asia/Shanghai
+Persistent=false
+AccuracySec=1min
+RandomizedDelaySec=0
+Unit=producthunt-daily.service
+
+[Install]
+WantedBy=timers.target
