@@ -90,6 +90,11 @@ def _request(method: str, path: str, token: str, payload: dict | None = None) ->
     return parsed
 
 
+def _ready_line_from_notion(raw: str) -> str:
+    """Undo only Notion's escaped underscores before strict READY matching."""
+    return raw.replace(r"\_", "_")
+
+
 def _find_existing(parent_id: str, unique_prefix: str, token: str) -> dict | None:
     """Search every child page, including pagination; user-renamed headlines survive."""
     cursor = None
@@ -235,7 +240,7 @@ def sync_article(*, source_key: str, title: str, markdown: str,
         # existing child's immutable READY handshake and content digest.
         existing = _read_markdown(found["id"], token)
         lines = existing.rstrip("\n").split("\n")
-        match = _READY_RE.fullmatch(lines[-1]) if lines else None
+        match = _READY_RE.fullmatch(_ready_line_from_notion(lines[-1])) if lines else None
         if match is None or match.group("source") != source_key:
             raise RuntimeError("Existing Notion period page lacks a valid READY marker; reconcile manually")
         signed_body = _canonical("\n".join(lines[:-1]))
@@ -279,7 +284,7 @@ def sync_article(*, source_key: str, title: str, markdown: str,
     marker = _append_ready(page_id, source_key, verified_digest, token)
     final = _read_markdown(page_id, token)
     lines = final.rstrip().split("\n")
-    if not lines or not _READY_RE.fullmatch(lines[-1]) or lines[-1] != marker:
+    if not lines or not _READY_RE.fullmatch(_ready_line_from_notion(lines[-1])) or _ready_line_from_notion(lines[-1]) != marker:
         raise RuntimeError("Notion READY marker did not round-trip")
     verified_body = _canonical("\n".join(lines[:-1]))
     if verified_body != readback or hashlib.sha256(verified_body.encode("utf-8")).hexdigest() != verified_digest:
