@@ -62,3 +62,19 @@ jobs:
               raise SystemExit("Expected duplicate_ready without writes")
           print("NOTION_IDEMPOTENCY_OK: duplicate_ready")
           PY
+
+
+      - name: Check out publisher main for read-only consumer acceptance
+        uses: actions/checkout@v4
+        with:
+          repository: gamehack/qjai-text-publisher
+          ref: main
+          path: publisher
+      - name: Install current publisher
+        run: python -m pip install ./publisher
+      - name: Verify downstream publisher dry-run (no channel API calls)
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+        run: |
+          python -m qjai_text_publisher --state /tmp/qjai-producthunt-dryrun.sqlite \
+            dry-run --profile producthunt --period 2026-10-30
