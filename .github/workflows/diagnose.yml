@@ -45,3 +45,49 @@ jobs:
           print("safe_roundtrip_match", _matches_safe_notion_roundtrip(expected, actual))
           assert _matches_safe_notion_roundtrip(expected, actual), "Unexpected non-formatting content difference"
           PY
+
+
+      - name: Reconcile verified test-only article and validate idempotency
+        env:
+          NOTION_API_KEY: PLACEHOLDER
+          NOTION_ENABLE_SYNC: "true"
+          NOTION_PARENT_PAGE_ID: "4109e605-ccf8-81c4-accd-c19386b4a38d"
+        run: |
+          python - <<'PY'
+          import hashlib, os, re
+          from pathlib import Path
+          from qjai_producthunt.notion_sync import (
+              _canonical, _read_markdown, _matches_safe_notion_roundtrip,
+              _verify_created_page, _append_ready, sync_article,
+              EXPECTED_PARENT_PAGE_ID,
+          )
+          page_id="4109e605-ccf8-81c5-997f-f25042f361b5"
+          title="2026-10-30｜AI编程赚钱切口：做缺陷上下文交付层"
+          source_key="producthunt:2026-10-30"
+          token=os.environ["NOTION_API_KEY"]
+          markdown=Path("diagnostics/article.md").read_text(encoding="utf-8")
+          digest=hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+          content=re.sub(r"^#\s+[^\n]+\n+", "", markdown, count=1)
+          expected=_canonical("> 潜界 AI 文章归档。来源唯一键：" + chr(96) + source_key + chr(96)
+                              + "。 原文 SHA-256：" + chr(96) + digest + chr(96) + "。\n\n" + content)
+          _verify_created_page(page_id,EXPECTED_PARENT_PAGE_ID,title,token)
+          actual=_read_markdown(page_id, token)
+          if not _matches_safe_notion_roundtrip(expected, actual):
+              raise SystemExit("Test page has unexpected content changes; refusing READY")
+          sha=hashlib.sha256(actual.encode("utf-8")).hexdigest()
+          if "QJAI_PUBLISH_READY" in actual:
+              raise SystemExit("Test page already contains READY; refusing double append")
+          marker=_append_ready(page_id,source_key,sha,token)
+          final=_read_markdown(page_id,token)
+          lines=final.rstrip().split("\n")
+          if not lines or lines[-1]!=marker:
+              raise SystemExit("READY marker was not returned unchanged")
+          body=_canonical("\n".join(lines[:-1]))
+          if body!=actual or hashlib.sha256(body.encode("utf-8")).hexdigest()!=sha:
+              raise SystemExit("Content or SHA-256 changed after READY")
+          print("NOTION_READY_OK: recovered verified test page")
+          result=sync_article(source_key=source_key,title=title,unique_prefix="2026-10-30｜",markdown=markdown)
+          if result["result"]!="duplicate_ready":
+              raise SystemExit("Idempotent duplicate-ready validation failed")
+          print("NOTION_IDEMPOTENCY_OK: duplicate_ready")
+          PY
