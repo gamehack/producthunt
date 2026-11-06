@@ -59,7 +59,8 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 - 定时：`0 9 * * *`（UTC），即北京时间每天 17:00。
 - 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。
-- 并发控制：同一仓库同一 ref 同时只运行一个生产任务，不会因手动触发而取消正在运行的任务。
+- 并发控制：同一仓库同一时刻只运行一个生产任务，不会因手动触发而取消正在运行的任务。
+- 切换保护：定时任务默认关闭，只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；手动 `workflow_dispatch` 不受该开关影响，便于在旧项目仍运行时使用历史日期做联调。
 - 超时：90 分钟。
 - 最小权限：`contents: read`。
 - 同日期重试：使用 GitHub Actions Cache 恢复 SQLite 检查点和文章文件。
@@ -84,10 +85,21 @@ GitHub 的 schedule 是 UTC 时区，可能因平台负载稍有延迟；17:00 �
 | Variable 名称 | 默认值 |
 |---|---|
 | `OMNIROUTE_MODEL` | `minimax-m3` |
+| `PRODUCTHUNT_PRODUCTION_ENABLED` | 默认不设置或 `false`；完成新旧项目切换后再设置为 `true` |
 
 **重要：** GitHub-hosted runner 不在你的 Docker 网络内。因此 `OMNIROUTE_BASE_URL` 必须是 runner 可通过公网 HTTPS 访问的地址；不能填写 `localhost`、Docker service 名称或仅服务器内网可达的地址。应继续使用强认证、TLS 和必要的访问控制，不要为了 Actions 而开放无认证 API。若现有 OmniRoute 只监听内网，需要先解决安全的外部 API 连通性，再启用定时任务。
 
-Notion 父页面 ID 固定在 workflow 中，并由程序再次校验；生产任务强制开启 `NOTION_ENABLE_SYNC` 和 `NOTION_AUTOSYNC_AFTER_GENERATION`。密钥只放 GitHub Actions Secrets，不写入代码、仓库变量、日志或 artifact。
+Notion 父页面 ID 固定在 workflow 中，并由程序再次校验；生产任务强制开启 `NOTION_ENABLE_SYNC` 和 `NOTION_AUTOSYNC_AFTER_GENERATION`。密钥只放 GitHub Actions Secrets，不写入代码、日志或 artifact。
+
+### 新旧项目切换顺序
+
+1. 先配置 Secrets，保持 `PRODUCTHUNT_PRODUCTION_ENABLED` 为 `false` 或未设置，避免新旧两个 17:00 任务同时运行。
+2. 在 Actions 手动触发 `snapshot_date=2026-10-30`，完成真实 Product Hunt API → OmniRoute → Notion READY 联调；该历史日期不会与旧项目当天的日报冲突。
+3. 通过现有 `qjai-text-publisher` 对该日期执行只读 dry-run，确认能读取新项目写入的 READY 和 SHA-256；不发送微信/CMS 草稿。
+4. 只有前三项验收通过后，停用旧 `qjai-intelligence` 的 17:00 定时器并删除旧项目；保留独立的 `qjai-text-publisher` 18:30 任务。
+5. 最后将 GitHub Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED` 设置为 `true`，新项目从下一个 17:00 时段开始正式定时运行。
+
+这一步只退役旧项目，不在服务器部署新项目。
 
 ## 配置与本地开发
 
