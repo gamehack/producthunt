@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   produce-notion-ready:
+    # Keep the schedule dormant until the old producer is retired. Manual E2E runs remain available.
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
     timeout-minutes: 90
