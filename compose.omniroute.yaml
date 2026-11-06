@@ -1,0 +1,10 @@
+services:
+  producthunt:
+    networks:
+      - default
+      - omniroute
+
+networks:
+  omniroute:
+    external: true
+    name: ${PRODUCTHUNT_OMNIROUTE_NETWORK:?Set this to an existing network attached to the omniroute container}
