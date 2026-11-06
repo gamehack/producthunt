@@ -11,15 +11,19 @@ _TRAILING_PUNCTUATION = " :：,，。.!！?？;；、-—|｜"
 def article_title(subject: str) -> str:
     """Validate a complete downstream-compatible title; never truncate it."""
     title = subject.strip()
-    for prefix in ("产品猎人日报｜", "AI创业情报｜", "AI 创业情报｜"):
-        while title.startswith(prefix):
-            title = title[len(prefix):].strip()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in ("产品猎人日报｜", "AI创业情报｜", "AI 创业情报｜"):
+            if title.startswith(prefix):
+                title = title[len(prefix):].strip()
+                changed = True
     title = title.lstrip("｜|:：-— ").rstrip(_TRAILING_PUNCTUATION).strip()
     if not title:
         raise ValueError("Article title cannot be empty")
     size = len(title.encode("utf-8"))
     if size > MAX_TITLE_BYTES:
-        raise ValueError(f"Article title exceeds {MAX_TITLE_BYTES} UTF-8 bytes ({size}); rewrite it")
+        raise ValueError(f"Article title exceeds {MAX_TITLE_BYTES} UTF-8 bytes ({size}); rewrite it instead of truncating")
     return title
 
 
