@@ -1,0 +1,11 @@
+services:
+  producthunt:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
