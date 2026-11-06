@@ -96,7 +96,7 @@ Notion 父页面 ID 固定在 workflow 中，并由程序再次校验；生产�
 1. 先配置 Secrets，保持 `PRODUCTHUNT_PRODUCTION_ENABLED` 为 `false` 或未设置，避免新旧两个 17:00 任务同时运行。
 2. 在 Actions 手动触发 `snapshot_date=2026-10-30`，完成真实 Product Hunt API → OmniRoute → Notion READY 联调；该历史日期不会与旧项目当天的日报冲突。
 3. 通过现有 `qjai-text-publisher` 对该日期执行只读 dry-run，确认能读取新项目写入的 READY 和 SHA-256；不发送微信/CMS 草稿。
-4. 只有前两项验收通过后，停用旧 `qjai-intelligence` 的 17:00 定时器并删除旧项目；保留独立的 `qjai-text-publisher` 18:30 任务。
+4. 只有前三项验收通过后，停用旧 `qjai-intelligence` 的 17:00 定时器并删除旧项目；保留独立的 `qjai-text-publisher` 18:30 任务。
 5. 最后将 GitHub Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED` 设置为 `true`，新项目从下一个 17:00 时段开始正式定时运行。
 
 这一步只退役旧项目，不在服务器部署新项目。
