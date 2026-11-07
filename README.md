@@ -4,7 +4,7 @@
 
 **本项目由 GitHub Actions 执行，不部署到硅谷服务器。** 不需要常驻服务器、Docker、systemd 或服务器定时任务。
 
-**它不是发布器。** 微信公众号和 CMS 草稿由独立的 [qjai-text-publisher](https://github.com/gamehack/qjai-text-publisher) 从 Notion 读取；本项目不含渠道 API、渠道凭证或渠道发送状态。
+**它不是发布器。** [mp-publisher](https://github.com/gamehack/mp-publisher) 在硅谷容器中创建微信公众号草稿；[cms-publisher](https://github.com/gamehack/cms-publisher) 通过 GitHub Actions 独立创建 CMS 草稿。两者从 Notion READY 读取并各自幂等。本项目不含渠道 API、凭证或渠道发送状态。
 
 ## 自动化数据流
 
@@ -48,7 +48,8 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 | 北京时间 | 职责 | 项目 |
 |---|---|---|
 | 每日 17:15 | Product Hunt 采集、AI 研究、文章生成、Notion READY | GitHub Actions / 本仓库 |
-| 每日 18:30 | 读取 Notion READY，分别创建微信和 CMS 草稿 | `qjai-text-publisher` |
+| 每日 17:30、18:30 兜底 | 读取 READY 并创建微信公众号草稿 | `mp-publisher`（硅谷容器） |
+| 每日 19:15 | 读取 READY 并创建 CMS 草稿 | `cms-publisher`（GitHub Actions） |
 | 每日 20:30 | 统一文章资产索引，仅维护索引和元数据 | ChatGPT 定时任务 |
 
 本仓库没有公众号自动群发能力，也不会调用 CMS 写入接口。Notion READY 是下游发布器的唯一输入。
@@ -92,15 +93,11 @@ Repository Variables：
 
 Notion 父页面 ID 固定在 workflow 中，并由程序再次校验；生产任务强制开启 `NOTION_ENABLE_SYNC` 和 `NOTION_AUTOSYNC_AFTER_GENERATION`。密钥只放 GitHub Actions Secrets，不写入代码、日志或 artifact。
 
-### 新旧项目切换顺序
+### 现行生产与渠道验收
 
-1. 先配置 Secrets，保持 `PRODUCTHUNT_PRODUCTION_ENABLED` 为 `false` 或未设置，避免新旧两个 17:15 任务同时运行。
-2. 在 Actions 手动触发 `snapshot_date=2026-10-30`，完成真实 Product Hunt API → OmniRoute → Notion READY 联调；该历史日期不会与旧项目当天的日报冲突。
-3. 通过现有 `qjai-text-publisher` 对该日期执行只读 dry-run，确认能读取新项目写入的 READY 和 SHA-256；不发送微信/CMS 草稿。
-4. 只有前三项验收通过后，停用旧 `qjai-intelligence` 的 17:15 定时器并删除旧项目；保留独立的 `qjai-text-publisher` 18:30 任务。
-5. 最后将 GitHub Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED` 设置为 `true`，新项目从下一个 17:15 时段开始正式定时运行。
-
-这一步只退役旧项目，不在服务器部署新项目。
+- 2026-11-07：上游 GitHub Actions 已完成真实 Notion READY 交付，旧 `qjai-intelligence` 生产定时器已停用。
+- 微信仅由 `mp-publisher` 的硅谷 systemd 定时容器负责；CMS 仅由 `cms-publisher` 的 GitHub Actions 负责。旧 `qjai-text-publisher` 服务器代码与 systemd 已在 2026-11-08 下线清理。
+- 本项目不直接调用渠道。下游首次自然定时仍需对照 Notion READY、微信草稿箱、CMS `draft` 与各自防重状态独立核验；异常时禁止盲目补投。
 
 ## 配置与本地开发
 
