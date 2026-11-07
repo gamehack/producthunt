@@ -4,8 +4,8 @@ run-name: Product Hunt daily ${{ github.event.inputs.snapshot_date || 'latest co
 
 on:
   schedule:
-    # 09:00 UTC = 17:00 Asia/Shanghai (Beijing time).
-    - cron: "0 9 * * *"
+    # 09:15 UTC = 17:15 Asia/Shanghai (Beijing time).
+    - cron: "15 9 * * *"
   workflow_dispatch:
     inputs:
       snapshot_date:
@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   produce-notion-ready:
-    # Keep the schedule dormant until the old producer is retired. Manual E2E runs remain available.
+    # Scheduled production requires the explicit repository gate; manual E2E runs remain available.
     if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
