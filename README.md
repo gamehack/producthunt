@@ -8,7 +8,7 @@
 
 ## 自动化数据流
 
-`GitHub Actions（每天 09:00 UTC / 17:00 北京时间）`
+`GitHub Actions（每天 09:15 UTC / 17:15 北京时间）`
 → `Product Hunt 官方 GraphQL API Top 20`
 → `AI 相关性筛选`
 → `创业机会评分`
@@ -47,7 +47,7 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 | 北京时间 | 职责 | 项目 |
 |---|---|---|
-| 每日 17:00 | Product Hunt 采集、AI 研究、文章生成、Notion READY | GitHub Actions / 本仓库 |
+| 每日 17:15 | Product Hunt 采集、AI 研究、文章生成、Notion READY | GitHub Actions / 本仓库 |
 | 每日 18:30 | 读取 Notion READY，分别创建微信和 CMS 草稿 | `qjai-text-publisher` |
 | 每日 20:30 | 统一文章资产索引，仅维护索引和元数据 | ChatGPT 定时任务 |
 
@@ -57,7 +57,7 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 生产任务位于 `.github/workflows/daily.yml`：
 
-- 定时：`0 9 * * *`（UTC），即北京时间每天 17:00。
+- 定时：`15 9 * * *`（UTC），即北京时间每天 17:15。
 - 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。
 - 并发控制：同一仓库同一时刻只运行一个生产任务，不会因手动触发而取消正在运行的任务。
 - 切换保护：定时任务默认关闭，只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；手动 `workflow_dispatch` 不受该开关影响，便于在旧项目仍运行时使用历史日期做联调。
@@ -66,7 +66,7 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 - 同日期重试：使用 GitHub Actions Cache 恢复 SQLite 检查点和文章文件。
 - 失败恢复：尝试上传该日期的 JSON/Markdown artifact，保留 7 天。
 
-GitHub 的 schedule 是 UTC 时区，可能因平台负载稍有延迟；17:00 是目标触发时间，不是严格实时 SLA。
+GitHub 的 schedule 是 UTC 时区，可能因平台负载稍有延迟；17:15 是目标触发时间，不是严格实时 SLA。
 
 ### 必须配置的 Actions Secrets
 
@@ -94,11 +94,11 @@ Notion 父页面 ID 固定在 workflow 中，并由程序再次校验；生产�
 
 ### 新旧项目切换顺序
 
-1. 先配置 Secrets，保持 `PRODUCTHUNT_PRODUCTION_ENABLED` 为 `false` 或未设置，避免新旧两个 17:00 任务同时运行。
+1. 先配置 Secrets，保持 `PRODUCTHUNT_PRODUCTION_ENABLED` 为 `false` 或未设置，避免新旧两个 17:15 任务同时运行。
 2. 在 Actions 手动触发 `snapshot_date=2026-10-30`，完成真实 Product Hunt API → OmniRoute → Notion READY 联调；该历史日期不会与旧项目当天的日报冲突。
 3. 通过现有 `qjai-text-publisher` 对该日期执行只读 dry-run，确认能读取新项目写入的 READY 和 SHA-256；不发送微信/CMS 草稿。
-4. 只有前三项验收通过后，停用旧 `qjai-intelligence` 的 17:00 定时器并删除旧项目；保留独立的 `qjai-text-publisher` 18:30 任务。
-5. 最后将 GitHub Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED` 设置为 `true`，新项目从下一个 17:00 时段开始正式定时运行。
+4. 只有前三项验收通过后，停用旧 `qjai-intelligence` 的 17:15 定时器并删除旧项目；保留独立的 `qjai-text-publisher` 18:30 任务。
+5. 最后将 GitHub Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED` 设置为 `true`，新项目从下一个 17:15 时段开始正式定时运行。
 
 这一步只退役旧项目，不在服务器部署新项目。
 
