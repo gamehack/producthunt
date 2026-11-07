@@ -25,7 +25,7 @@ jobs:
       - name: Assert production uses GitHub Actions only
         run: |
           test -f .github/workflows/daily.yml
-          grep -Fq 'cron: "0 9 * * *"' .github/workflows/daily.yml
+          grep -Fq 'cron: "15 9 * * *"' .github/workflows/daily.yml
           grep -Fq 'workflow_dispatch:' .github/workflows/daily.yml
           grep -Fq "vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'" .github/workflows/daily.yml
           grep -Fq 'NOTION_AUTOSYNC_AFTER_GENERATION: "true"' .github/workflows/daily.yml
