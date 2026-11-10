@@ -1,0 +1,76 @@
+name: One-time Product Hunt READY recovery 2026-11-09
+
+on:
+  push:
+    paths:
+      - '.github/workflows/catchup-2026-11-09.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: producthunt-daily
+  cancel-in-progress: false
+
+jobs:
+  catchup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PRODUCT_HUNT_TOKEN: ${{ secrets.PRODUCT_HUNT_TOKEN }}
+      PRODUCT_HUNT_COMMERCIAL_AUTHORIZED: ${{ secrets.PRODUCT_HUNT_COMMERCIAL_AUTHORIZED }}
+      OMNIROUTE_BASE_URL: ${{ secrets.OMNIROUTE_BASE_URL }}
+      OMNIROUTE_API_KEY: ${{ secrets.OMNIROUTE_API_KEY }}
+      OMNIROUTE_MODEL: minimax-cn/MiniMax-M3
+      NOTION_ENABLE_SYNC: 'true'
+      NOTION_AUTOSYNC_AFTER_GENERATION: 'true'
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_PARENT_PAGE_ID: '4109e605-ccf8-81c4-accd-c19386b4a38d'
+      PRODUCTHUNT_SOURCE: producthunt
+      PRODUCTHUNT_DB_PATH: data/producthunt.sqlite
+      PRODUCTHUNT_OUTPUT_DIR: output
+      PRODUCTHUNT_OPPORTUNITY_THRESHOLD: '60'
+      PRODUCTHUNT_MAX_RESEARCH: '5'
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Confirm permitted production configuration
+        shell: bash
+        env:
+          VALID: ${{ secrets.PRODUCT_HUNT_TOKEN != '' && secrets.PRODUCT_HUNT_COMMERCIAL_AUTHORIZED == 'true' && secrets.OMNIROUTE_BASE_URL != '' && secrets.OMNIROUTE_API_KEY != '' && secrets.NOTION_API_KEY != '' }}
+        run: |
+          if [[ "$VALID" != "true" ]]; then
+            echo "::error::Required production credentials or authorization missing"
+            exit 1
+          fi
+
+      - name: Install producer
+        run: |
+          mkdir -p data output
+          python -m pip install .
+
+      - name: Produce only the missing LA date and verify Notion READY
+        run: producthunt run --date 2026-11-09
+
+      - name: Confirm producer-only result
+        if: success()
+        run: |
+          echo '## Recovery: producthunt:2026-11-09' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Notion READY verified by producer. No WeChat or CMS API writes.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve diagnosis files on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: producthunt-recovery-2026-11-09
+          path: output/2026-11-09/
+          if-no-files-found: ignore
+          retention-days: 7
