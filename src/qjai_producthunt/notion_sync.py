@@ -212,6 +212,33 @@ def _matches_safe_notion_roundtrip(expected: str, actual: str) -> bool:
     return True
 
 
+
+def check_period_ready(*, source_key: str, unique_prefix: str) -> bool:
+    """Read-only authoritative period check before backup production.
+
+    A missing child returns False. An existing malformed, unsigned, duplicate,
+    or modified child raises rather than triggering a second expensive job.
+    """
+    token = os.getenv("NOTION_API_KEY", "").strip()
+    parent_id = _uuid(os.getenv("NOTION_PARENT_PAGE_ID", ""))
+    if len(token) < 20 or parent_id != EXPECTED_PARENT_PAGE_ID:
+        raise PermissionError("Notion READY checker requires allowlisted credentials")
+    if not _KEY_RE.fullmatch(source_key) or not unique_prefix:
+        raise ValueError("Invalid period identity")
+    child = _find_existing(parent_id, unique_prefix, token)
+    if child is None:
+        return False
+    actual = _read_markdown(child["id"], token)
+    lines = actual.rstrip("\n").split("\n")
+    match = _READY_RE.fullmatch(_ready_line_from_notion(lines[-1])) if lines else None
+    if match is None or match.group("source") != source_key:
+        raise RuntimeError("Existing Notion period is not READY; stop backup generation")
+    body = _canonical("\n".join(lines[:-1]))
+    if hashlib.sha256(body.encode("utf-8")).hexdigest() != match.group("sha"):
+        raise RuntimeError("Existing Notion READY digest is invalid; stop backup generation")
+    return True
+
+
 def sync_article(*, source_key: str, title: str, markdown: str,
                  unique_prefix: str) -> dict[str, str]:
     """Create one dated child page, or confirm its existence without overwriting.
