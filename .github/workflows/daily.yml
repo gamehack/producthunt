@@ -6,6 +6,9 @@ on:
   schedule:
     # 09:15 UTC = 17:15 Asia/Shanghai (Beijing time).
     - cron: "15 9 * * *"
+    # Independent second chance if GitHub drops the first schedule. A strict
+    # read-only Notion READY check below prevents duplicate expensive production.
+    - cron: "23 10 * * *"
   workflow_dispatch:
     inputs:
       snapshot_date:
@@ -110,7 +113,24 @@ jobs:
               raise SystemExit("OMNIROUTE_BASE_URL must be an HTTPS endpoint reachable from GitHub-hosted runners")
           PY
 
+      - name: Check canonical Notion READY before production
+        id: notion_ready
+        env:
+          SNAPSHOT_DATE: ${{ steps.snapshot.outputs.date }}
+        run: |
+          set -euo pipefail
+          producthunt check-ready --date "$SNAPSHOT_DATE" > "$RUNNER_TEMP/notion-ready-status.json"
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json,os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["RUNNER_TEMP"])/"notion-ready-status.json").read_text())
+          if data.get("status") not in ("ready","missing"):
+              raise SystemExit("Unexpected Notion preflight status")
+          print("present=" + ("true" if data["status"] == "ready" else "false"))
+          PY
+
       - name: Produce article and verify Notion READY
+        if: steps.notion_ready.outputs.present != 'true'
         env:
           SNAPSHOT_DATE: ${{ steps.snapshot.outputs.date }}
         run: producthunt run --date "$SNAPSHOT_DATE"
@@ -124,6 +144,7 @@ jobs:
             echo "## Product Hunt production succeeded"
             echo
             echo "- Snapshot date (America/Los_Angeles): $SNAPSHOT_DATE"
+            echo "- Preflight: ${{ steps.notion_ready.outputs.present == 'true' && 'already READY' || 'produced new READY' }}"
             echo "- Notion destination: 08 · 潜界 AI｜产品猎人日报"
             echo "- READY marker and SHA-256 readback: verified by the producer"
             echo "- Channel publishing: not performed; qjai-text-publisher remains responsible"

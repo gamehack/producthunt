@@ -9,7 +9,7 @@ import sys
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from .notion_sync import EXPECTED_PARENT_PAGE_ID, sync_article
+from .notion_sync import EXPECTED_PARENT_PAGE_ID, sync_article, check_period_ready
 from .pipeline import DailyPipeline
 from .recovery import read_saved_article
 from .research import WebsiteEvidenceCollector
@@ -48,6 +48,17 @@ def _require_production_config(settings: Settings) -> None:
 
 async def _execute(args: argparse.Namespace) -> dict[str, object]:
     settings = Settings.load(args.env)
+    if args.command == "check-ready":
+        _require_notion_config()
+        day = date.fromisoformat(args.date)
+        if day.isoformat() != args.date:
+            raise ValueError("Date must be canonical YYYY-MM-DD")
+        exists = check_period_ready(
+            source_key=f"producthunt:{day.isoformat()}",
+            unique_prefix=f"{day.isoformat()}｜",
+        )
+        return {"status": "ready" if exists else "missing", "period": day.isoformat()}
+
     if args.command == "sync-notion":
         if settings.source != "producthunt" or not settings.ph_commercial_authorized:
             raise PermissionError("Notion recovery requires a validated Product Hunt article")
@@ -87,6 +98,8 @@ def parser() -> argparse.ArgumentParser:
     )
     root.add_argument("--env", help="Private .env file path; defaults to ./.env")
     commands = root.add_subparsers(dest="command", required=True)
+    preflight = commands.add_parser("check-ready", help="Read-only verified Notion READY preflight")
+    preflight.add_argument("--date", required=True, help="Product Hunt day YYYY-MM-DD")
     run = commands.add_parser("run", help="Generate the latest completed Product Hunt day")
     run.add_argument("--date", help="Explicit Product Hunt date, YYYY-MM-DD (America/Los_Angeles)")
     recover = commands.add_parser("sync-notion", help="Recover a validated local article into Notion")
