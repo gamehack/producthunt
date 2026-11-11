@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: producthunt-daily
@@ -134,6 +135,11 @@ jobs:
         env:
           SNAPSHOT_DATE: ${{ steps.snapshot.outputs.date }}
         run: producthunt run --date "$SNAPSHOT_DATE"
+
+      - name: Report verified Notion READY to Ops (GitHub OIDC)
+        env:
+          SNAPSHOT_DATE: ${{ steps.snapshot.outputs.date }}
+        run: python -m qjai_producthunt.ops_proof --date "$SNAPSHOT_DATE"
 
       - name: Publish run summary
         if: success()
