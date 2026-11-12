@@ -8,7 +8,7 @@
 
 ## 自动化数据流
 
-`GitHub Actions（每天 09:15 UTC / 17:15 北京时间）`
+`GitHub Actions（17:15 主窗口；18:23、19:00 北京时间兜底）`
 → `Product Hunt 官方 GraphQL API Top 20`
 → `AI 相关性筛选`
 → `创业机会评分`
@@ -47,8 +47,8 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 | 北京时间 | 职责 | 项目 |
 |---|---|---|
-| 每日 17:15 | Product Hunt 采集、AI 研究、文章生成、Notion READY | GitHub Actions / 本仓库 |
-| 每日 17:30、18:30 兜底 | 读取 READY 并创建微信公众号草稿 | `mp-publisher`（硅谷容器） |
+| 每日 17:15、18:23、19:00 | Product Hunt 采集、AI 研究、文章生成、Notion READY（后两次为独立兜底） | GitHub Actions / 本仓库 |
+| 每日 19:00、20:00、21:00 | 读取 READY 并创建微信公众号草稿（三次检查） | `mp-publisher`（硅谷容器） |
 | 每日 19:15 | 读取 READY 并创建 CMS 草稿 | `cms-publisher`（GitHub Actions） |
 | 每日 20:30 | 统一文章资产索引，仅维护索引和元数据 | ChatGPT 定时任务 |
 
@@ -58,7 +58,7 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 生产任务位于 `.github/workflows/daily.yml`：
 
-- 定时：`15 9 * * *`（UTC），即北京时间每天 17:15。
+- 定时：`15 9 * * *`、`23 10 * * *`、`0 11 * * *`（UTC），即北京时间每天 17:15、18:23、19:00；三个窗口共享同一 source_key，Notion READY 检查阻止重复生产。
 - 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。
 - 并发控制：同一仓库同一时刻只运行一个生产任务，不会因手动触发而取消正在运行的任务。
 - 切换保护：定时任务默认关闭，只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；手动 `workflow_dispatch` 不受该开关影响，便于在旧项目仍运行时使用历史日期做联调。
@@ -67,7 +67,7 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 - 同日期重试：使用 GitHub Actions Cache 恢复 SQLite 检查点和文章文件。
 - 失败恢复：尝试上传该日期的 JSON/Markdown artifact，保留 7 天。
 
-GitHub 的 schedule 是 UTC 时区，可能因平台负载稍有延迟；17:15 是目标触发时间，不是严格实时 SLA。
+GitHub 的 schedule 是 UTC 时区，可能因平台负载延迟或漏触发；18:23、19:00 是独立兜底。每次任务最多 90 分钟。一次性事故恢复 cron 不作为日常计划，确认触发后必须移除。
 
 ### 必须配置的 Actions Secrets
 
