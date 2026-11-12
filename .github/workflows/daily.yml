@@ -11,8 +11,8 @@ on:
     - cron: "23 10 * * *"
     # Third daily recovery slot: 19:00 Beijing, after the first two windows.
     - cron: "0 11 * * *"
-    # One-time recovery for the missed 2026-11-11 snapshot (00:25 Beijing on Nov 13).
-    - cron: "25 16 12 11 *"
+    # One-time recovery for the missed 2026-11-11 snapshot (00:35 Beijing on Nov 13).
+    - cron: "35 16 12 11 *"
   workflow_dispatch:
     inputs:
       snapshot_date:
@@ -32,7 +32,7 @@ jobs:
   produce-notion-ready:
     # Scheduled production requires the explicit repository gate; manual E2E runs remain available.
     # The exact one-time recovery schedule is explicitly authorized for the missed 2026-11-11 period.
-    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true' || github.event.schedule == '25 16 12 11 *'
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true' || github.event.schedule == '35 16 12 11 *'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
     timeout-minutes: 90
