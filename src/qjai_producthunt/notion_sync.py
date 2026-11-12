@@ -208,6 +208,16 @@ def _matches_safe_notion_roundtrip(expected: str, actual: str) -> bool:
             display = url.replace("_", r"\_")
             if after == f"- 资料来源：[{display}]({url})":
                 continue
+        # Notion v2 auto-links bare domains such as Latch.ai to
+        # [Latch.ai](http://Latch.ai). Only accept an exact same-label
+        # http:// link; never accept a changed hostname or body text.
+        bare_domains = re.sub(
+            r"\[([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,24})\]\(http://\1\)",
+            lambda matched: matched.group(1),
+            after,
+        )
+        if bare_domains == before:
+            continue
         return False
     return True
 
