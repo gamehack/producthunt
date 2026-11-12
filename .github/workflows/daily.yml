@@ -9,6 +9,10 @@ on:
     # Independent second chance if GitHub drops the first schedule. A strict
     # read-only Notion READY check below prevents duplicate expensive production.
     - cron: "23 10 * * *"
+    # Third daily recovery slot: 19:00 Beijing, after the first two windows.
+    - cron: "0 11 * * *"
+    # One-time recovery for the missed 2026-11-11 snapshot (23:40 Beijing on Nov 12 UTC).
+    - cron: "40 15 12 11 *"
   workflow_dispatch:
     inputs:
       snapshot_date:
