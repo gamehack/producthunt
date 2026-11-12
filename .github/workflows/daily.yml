@@ -31,7 +31,8 @@ concurrency:
 jobs:
   produce-notion-ready:
     # Scheduled production requires the explicit repository gate; manual E2E runs remain available.
-    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'
+    # The exact one-time recovery schedule is explicitly authorized for the missed 2026-11-11 period.
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true' || github.event.schedule == '25 16 12 11 *'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
     timeout-minutes: 90
