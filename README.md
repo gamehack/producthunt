@@ -61,13 +61,13 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 - 定时：`15 9 * * *`、`23 10 * * *`、`0 11 * * *`（UTC），即北京时间每天 17:15、18:23、19:00；三个窗口共享同一 source_key，Notion READY 检查阻止重复生产。
 - 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。
 - 并发控制：同一仓库同一时刻只运行一个生产任务，不会因手动触发而取消正在运行的任务。
-- 切换保护：日常定时任务只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；手动 `workflow_dispatch` 不受该开关影响。2026-11-13 00:50 北京时间存在一个仅针对 `producthunt:2026-11-11` 的一次性恢复 cron 白名单，触发后必须移除该 cron 与对应例外，不改变日常生产开关。
+- 切换保护：日常定时任务只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；手动 `workflow_dispatch` 不受该开关影响。
 - 超时：90 分钟。
 - 最小权限：`contents: read`。
 - 同日期重试：使用 GitHub Actions Cache 恢复 SQLite 检查点和文章文件。
 - 失败恢复：尝试上传该日期的 JSON/Markdown artifact，保留 7 天。
 
-GitHub 的 schedule 是 UTC 时区，可能因平台负载延迟或漏触发；18:23、19:00 是独立兜底。每次任务最多 90 分钟。一次性事故恢复 cron 不作为日常计划，确认触发后必须移除。
+GitHub 的 schedule 是 UTC 时区，可能因平台负载延迟或漏触发；18:23、19:00 是独立兜底。每次任务最多 90 分钟。
 
 ### 必须配置的 Actions Secrets
 
