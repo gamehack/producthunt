@@ -32,7 +32,7 @@ jobs:
   produce-notion-ready:
     # Scheduled production requires the explicit repository gate; manual E2E runs remain available.
     # The exact one-time recovery schedule is explicitly authorized for the missed 2026-11-11 period.
-    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true' || github.event.schedule == '35 16 12 11 *'
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true' || github.event.schedule == '50 16 12 11 *'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -67,7 +67,7 @@ jobs:
       - name: Resolve Product Hunt snapshot date
         id: snapshot
         env:
-          REQUESTED_DATE: ${{ github.event.inputs.snapshot_date || (github.event.schedule == '35 16 12 11 *' && '2026-11-11') || '' }}
+          REQUESTED_DATE: ${{ github.event.inputs.snapshot_date || (github.event.schedule == '50 16 12 11 *' && '2026-11-11') || '' }}
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
           from datetime import date, datetime, timedelta
