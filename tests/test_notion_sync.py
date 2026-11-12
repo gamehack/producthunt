@@ -71,6 +71,17 @@ class NotionSyncTests(unittest.TestCase):
         self.assertFalse(notion_sync._matches_safe_notion_roundtrip(original, output + "\n"))
 
 
+    def test_notion_v2_auto_linked_domain_is_lossless(self):
+        original = "据上架资料介绍，Latch.ai 提供代理服务。\\n"
+        rendered = "据上架资料介绍，[Latch.ai](http://Latch.ai) 提供代理服务。\\n"
+        self.assertTrue(notion_sync._matches_safe_notion_roundtrip(original, rendered))
+        self.assertFalse(notion_sync._matches_safe_notion_roundtrip(
+            original, rendered.replace("http://Latch.ai", "http://another.ai")))
+        self.assertFalse(notion_sync._matches_safe_notion_roundtrip(
+            original, rendered.replace("提供代理服务", "提供未经核验的功能")))
+        self.assertFalse(notion_sync._matches_safe_notion_roundtrip(
+            original, rendered.replace("http://Latch.ai", "https://Latch.ai")))
+
     def test_existing_escaped_ready_marker_verifies_original_digest(self):
         body = "正文\n"
         digest = notion_sync.hashlib.sha256(body.encode()).hexdigest()
