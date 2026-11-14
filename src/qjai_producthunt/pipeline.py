@@ -80,6 +80,25 @@ def _select_research_candidates(
     return ranked[:limit]
 
 
+def _filter_article_citations(
+    article: ArticleDraft, allowed_urls: set[str],
+) -> tuple[ArticleDraft, int]:
+    """Drop unverifiable model-generated source URLs without inventing replacements.
+
+    The model can add URLs absent from verified evidence. Keep only exact URLs
+    already obtained by the evidence collector, including when a failed run
+    reuses its cached article draft. If nothing verifiable remains, the caller
+    still fails closed rather than publishing an uncited report.
+    """
+    corrected = []
+    removed = 0
+    for section in article.sections:
+        verified = [url for url in section.source_urls if url in allowed_urls]
+        removed += len(section.source_urls) - len(verified)
+        corrected.append(section.model_copy(update={"source_urls": verified}))
+    return article.model_copy(update={"sections": corrected}), removed
+
+
 @dataclass
 class DailyPipeline:
     settings: Settings
@@ -355,9 +374,11 @@ class DailyPipeline:
                 "相关功能与商业声称尚未独立核实。 "
             )
             article = article.model_copy(update={"lead": disclosure + article.lead})
-        for section in article.sections:
-            if any(url not in allowed_urls for url in section.source_urls):
-                raise ValueError("Article cites an unverified URL")
+        article, rejected_citations = _filter_article_citations(article, allowed_urls)
+        if rejected_citations:
+            # Never print the rejected URLs or article body to CI logs.
+            print(f"article: removed {rejected_citations} unverified source URLs",
+                  file=sys.stderr, flush=True)
         if reports and not any(section.source_urls for section in article.sections):
             raise ValueError("Article has no citations for its researched products")
 
