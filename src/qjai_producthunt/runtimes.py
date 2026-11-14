@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
 from dataclasses import dataclass
 from typing import Any, Protocol, TypeVar
 
@@ -36,9 +38,10 @@ class OpenAIAgentRuntime:
 
     async def generate(self, task: AgentTask, output_type: type[T]) -> T:
         from agents import Agent, AsyncOpenAI, OpenAIChatCompletionsModel, Runner, set_tracing_disabled
+        from openai import APIConnectionError, APIStatusError
 
         set_tracing_disabled(True)  # No API key or trace upload to OpenAI is required.
-        client = AsyncOpenAI(base_url=self.base_url, api_key=self.api_key)
+        client = AsyncOpenAI(base_url=self.base_url, api_key=self.api_key, max_retries=1)
         model = OpenAIChatCompletionsModel(model=self.model_name, openai_client=client)
         schema = json.dumps(output_type.model_json_schema(), ensure_ascii=False)
         instructions = (
@@ -57,7 +60,25 @@ class OpenAIAgentRuntime:
             model=model,
             output_type=str,
         )
-        result = await Runner.run(agent, json.dumps(task.payload, ensure_ascii=False), max_turns=4)
+        # Agent tasks have no external tools or writes. A transient upstream
+        # OmniRoute HTTP 524 can safely replay this one model-only step; the
+        # pipeline checkpoints each successful step separately.
+        for attempt in range(2):
+            try:
+                result = await Runner.run(
+                    agent, json.dumps(task.payload, ensure_ascii=False), max_turns=4
+                )
+                break
+            except (APIConnectionError, APIStatusError) as exc:
+                transient = isinstance(exc, APIConnectionError) or (
+                    isinstance(exc, APIStatusError)
+                    and exc.status_code in {500, 502, 503, 504, 524}
+                )
+                if not transient or attempt:
+                    raise
+                print(f"agent {task.name}: transient model error, retrying once",
+                      file=sys.stderr, flush=True)
+                await asyncio.sleep(8)
         value = result.final_output
         if isinstance(value, output_type):
             return value
