@@ -1,0 +1,22 @@
+name: Recovery Permission Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-permission-probe
+  cancel-in-progress: false
+
+jobs:
+  verify-dispatch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Confirm the least-privilege Actions dispatch
+        run: |
+          echo "GitHub accepted a workflow_dispatch request for the main branch."
+          echo "This probe performs no production work and accesses no repository secrets."
