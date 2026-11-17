@@ -37,7 +37,9 @@ jobs:
           grep -Fq "vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'" .github/workflows/daily.yml
           grep -Fq 'NOTION_AUTOSYNC_AFTER_GENERATION: "true"' .github/workflows/daily.yml
           grep -Fq 'OMNIROUTE_MODEL: minimax-cn/MiniMax-M3' .github/workflows/daily.yml
-          ! grep -Fq 'minimax-m3' .github/workflows/daily.yml
+          if grep -Fq 'minimax-m3' .github/workflows/daily.yml; then
+            echo "Unexpected model alias in production workflow"; exit 1
+          fi
           test ! -e Dockerfile
           test ! -e compose.yaml
           test ! -e deploy/systemd
