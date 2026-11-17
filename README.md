@@ -8,7 +8,7 @@
 
 ## 自动化数据流
 
-`GitHub Actions（17:15 主窗口；18:23、19:00 北京时间兜底）`
+`GitHub Actions（17:15 主窗口；18:23、19:00 北京时间兜底；Ops 在 19:25–20:30 受控补产）`
 → `Product Hunt 官方 GraphQL API Top 20`
 → `AI 相关性筛选`
 → `创业机会评分`
@@ -59,9 +59,10 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 生产任务位于 `.github/workflows/daily.yml`：
 
 - 定时：`15 9 * * *`、`23 10 * * *`、`0 11 * * *`（UTC），即北京时间每天 17:15、18:23、19:00；三个窗口共享同一 source_key，Notion READY 检查阻止重复生产。
-- 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。
+- 独立兜底：Cloudflare `qjai-ops` 每 30 分钟检查一次；19:25–20:30 期间，仅当没有有效 READY、没有同一期正在运行的任务、且没有已成功核验的生产任务时，才允许触发一次带明确 `snapshot_date` 的恢复 dispatch。微信/CMS 不由此工作流补投。
+- 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。普通人工运行不要勾选 `recovery`；该输入仅供 Ops 受控恢复使用。
 - 并发控制：同一仓库同一时刻只运行一个生产任务，不会因手动触发而取消正在运行的任务。
-- 切换保护：日常定时任务只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；手动 `workflow_dispatch` 不受该开关影响。
+- 切换保护：日常定时任务只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；普通人工 `workflow_dispatch` 仍可用于诊断，但带 `recovery=true` 的 Ops 自动恢复必须同时满足该生产开关。
 - 超时：90 分钟。
 - 最小权限：`contents: read`。
 - 同日期重试：使用 GitHub Actions Cache 恢复 SQLite 检查点和文章文件。
