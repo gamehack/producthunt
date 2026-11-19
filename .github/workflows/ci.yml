@@ -33,7 +33,10 @@ jobs:
           test -f .github/workflows/daily.yml
           grep -Fq 'cron: "15 9 * * *"' .github/workflows/daily.yml
           grep -Fq 'workflow_dispatch:' .github/workflows/daily.yml
-          grep -Fq "inputs.recovery != true" .github/workflows/daily.yml
+          test "$(grep -c '^    - cron:' .github/workflows/daily.yml)" -eq 1
+          if grep -Eq '23 10 \* \* \*|0 11 \* \* \*|inputs\.recovery' .github/workflows/daily.yml; then
+            echo "Unexpected backup schedule or retired OPS recovery input"; exit 1
+          fi
           grep -Fq "vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'" .github/workflows/daily.yml
           grep -Fq 'NOTION_AUTOSYNC_AFTER_GENERATION: "true"' .github/workflows/daily.yml
           grep -Fq 'OMNIROUTE_MODEL: minimax-cn/MiniMax-M3' .github/workflows/daily.yml
