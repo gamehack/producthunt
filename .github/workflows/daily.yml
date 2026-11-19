@@ -6,22 +6,12 @@ on:
   schedule:
     # 09:15 UTC = 17:15 Asia/Shanghai (Beijing time).
     - cron: "15 9 * * *"
-    # Independent second chance if GitHub drops the first schedule. A strict
-    # read-only Notion READY check below prevents duplicate expensive production.
-    - cron: "23 10 * * *"
-    # Third daily recovery slot: 19:00 Beijing, after the first two windows.
-    - cron: "0 11 * * *"
   workflow_dispatch:
     inputs:
       snapshot_date:
         description: "Product Hunt date in America/Los_Angeles; leave blank for the latest completed day"
         required: false
         type: string
-      recovery:
-        description: "Set only for an Ops-controlled automatic recovery dispatch"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -35,8 +25,7 @@ jobs:
     # Scheduled production requires the explicit repository gate; manual E2E runs remain available.
     if: >-
       (github.event_name == 'schedule' && vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (inputs.recovery != true || vars.PRODUCTHUNT_PRODUCTION_ENABLED == 'true'))
+      github.event_name == 'workflow_dispatch'
     name: Research products and create Notion READY article
     runs-on: ubuntu-latest
     timeout-minutes: 90
