@@ -8,7 +8,7 @@
 
 ## 自动化数据流
 
-`GitHub Actions（17:15 主窗口；18:23、19:00 北京时间兜底；Ops 在 19:25–20:30 受控补产）`
+`GitHub Actions（每日北京时间 17:15 单一生产调度）`
 → `Product Hunt 官方 GraphQL API Top 20`
 → `AI 相关性筛选`
 → `创业机会评分`
@@ -47,7 +47,7 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 | 北京时间 | 职责 | 项目 |
 |---|---|---|
-| 每日 17:15、18:23、19:00 | Product Hunt 采集、AI 研究、文章生成、Notion READY（后两次为独立兜底） | GitHub Actions / 本仓库 |
+| 每日 17:15 | Product Hunt 采集、AI 研究、文章生成、Notion READY | GitHub Actions / 本仓库 |
 | 每日 19:00、20:00、21:00 | 读取 READY 并创建微信公众号草稿（三次检查） | `mp-publisher`（硅谷容器） |
 | 每日 19:15 | 读取 READY 并创建 CMS 草稿 | `cms-publisher`（GitHub Actions） |
 | 每日 20:30 | 统一文章资产索引，仅维护索引和元数据 | ChatGPT 定时任务 |
@@ -58,17 +58,16 @@ GitHub Actions 使用 GitHub-hosted runner 执行一次性任务。Runner 结束
 
 生产任务位于 `.github/workflows/daily.yml`：
 
-- 定时：`15 9 * * *`、`23 10 * * *`、`0 11 * * *`（UTC），即北京时间每天 17:15、18:23、19:00；三个窗口共享同一 source_key，Notion READY 检查阻止重复生产。
-- 独立兜底：Cloudflare `qjai-ops` 每 30 分钟检查一次；19:25–20:30 期间，仅当没有有效 READY、没有同一期正在运行的任务、且没有已成功核验的生产任务时，才允许触发一次带明确 `snapshot_date` 的恢复 dispatch。微信/CMS 不由此工作流补投。
-- 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。普通人工运行不要勾选 `recovery`；该输入仅供 Ops 受控恢复使用。
+- 定时：`15 9 * * *`（UTC），即北京时间每天 17:15，仅保留一个日常生产窗口；Notion READY 检查阻止重复生产。
+- 手动触发：GitHub 仓库 → **Actions** → **Product Hunt Daily** → **Run workflow**。可填写 `snapshot_date`（Product Hunt 洛杉矶日期）；留空则使用最近一个已完成日期。仅用于明确授权的人工诊断或修复，不作为自动补产。
 - 并发控制：同一仓库同一时刻只运行一个生产任务，不会因手动触发而取消正在运行的任务。
-- 切换保护：日常定时任务只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；普通人工 `workflow_dispatch` 仍可用于诊断，但带 `recovery=true` 的 Ops 自动恢复必须同时满足该生产开关。
+- 生产开关：日常定时任务只有 Repository Variable `PRODUCTHUNT_PRODUCTION_ENABLED=true` 才会执行；人工 `workflow_dispatch` 可用于明确授权的诊断。
 - 超时：90 分钟。
 - 最小权限：`contents: read`。
 - 同日期重试：使用 GitHub Actions Cache 恢复 SQLite 检查点和文章文件。
 - 失败恢复：尝试上传该日期的 JSON/Markdown artifact，保留 7 天。
 
-GitHub 的 schedule 是 UTC 时区，可能因平台负载延迟或漏触发；18:23、19:00 是独立兜底。每次任务最多 90 分钟。
+GitHub 的 schedule 使用 UTC 时区，但不保证准点执行，平台负载可能导致延迟或丢失事件。2026-11-19 17:15（北京时间）未产生 Daily Run，且历史多次出现明显延迟。这是调度层异常，不代表 Notion 写入或 AI 生成失败；本仓库不再通过增加 GitHub schedule 或 OPS 自动补产掩盖问题。每次已启动的生产任务最多运行 90 分钟。
 
 ### 必须配置的 Actions Secrets
 
